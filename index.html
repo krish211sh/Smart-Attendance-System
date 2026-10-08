@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>COER Smart Attendance – Campus Camera Recognition</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#f4f6fb;--card:#fff;--tx:#14182b;--mu:#667;--ac:#1a4fd6;--ok:#12a150;--bad:#d93025;--wa:#e8a100;--bd:#e1e5ef}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1220;--card:#171d31;--tx:#eef1fb;--mu:#9aa3c0;--ac:#6c92ff;--bd:#272f4b}}
+:root[data-theme="dark"]{--bg:#0e1220;--card:#171d31;--tx:#eef1fb;--mu:#9aa3c0;--ac:#6c92ff;--bd:#272f4b}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{background:linear-gradient(135deg,#0b2a7a,#1a4fd6);color:#fff;padding:18px 16px}
+header h1{margin:0;font-size:20px}header p{margin:2px 0 0;opacity:.85;font-size:13px}
+.wrap{max-width:1100px;margin:auto;padding:14px}
+.grid{display:grid;gap:12px}
+.stats{grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px}
+.stat b{display:block;font-size:26px}.stat span{color:var(--mu);font-size:12px}
+h2{font-size:17px;margin:22px 0 10px}
+.cams{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.cam{border-radius:10px;overflow:hidden;background:#000}canvas{display:block;width:100%;height:auto}
+.cam i{position:absolute;top:6px;left:8px;font:11px monospace;font-style:normal}
+.cam em{position:absolute;top:6px;right:8px;width:8px;height:8px;border-radius:50%;background:#f33;animation:b 1s infinite}
+@keyframes b{50%{opacity:.2}}
+.face{position:absolute;width:44px;height:54px;border:2px solid #3f8;border-radius:4px;font:10px monospace;color:#3f8;padding:2px;transition:opacity .4s}
+.face.bad{border-color:#f55;color:#f55}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}
+button{background:var(--ac);color:#fff;border:0;border-radius:8px;padding:9px 14px;font-size:14px;cursor:pointer}
+button.alt{background:transparent;color:var(--ac);border:1px solid var(--ac)}
+input,select{padding:8px;border-radius:8px;border:1px solid var(--bd);background:var(--card);color:var(--tx);font-size:14px}
+.tw{overflow:auto;max-height:460px}table{width:100%;border-collapse:collapse;min-width:520px}
+th,td{text-align:left;padding:8px;border-bottom:1px solid var(--bd);font-size:13px}
+.tag{padding:2px 8px;border-radius:99px;font-size:12px;color:#fff}
+.P{background:var(--ok)}.A{background:var(--bad)}.L{background:var(--wa)}
+#log{max-height:230px;overflow:auto;font:12px/1.6 monospace}
+#log div{border-bottom:1px dashed var(--bd);padding:2px 0}
+.al{color:var(--bad)}
+.feat{grid-template-columns:repeat(auto-fit,minmax(250px,1fr))}
+.feat .card b{display:block;margin-bottom:4px}.feat p{margin:0;color:var(--mu);font-size:13px}
+.flow{display:flex;gap:6px;flex-wrap:wrap}
+.flow span{background:var(--card);border:1px solid var(--bd);padding:8px 10px;border-radius:8px;font-size:13px}
+footer{text-align:center;color:var(--mu);font-size:12px;padding:20px}
+</style></head><body>
+<header><h1>🎓 COER University, Roorkee — Smart Attendance</h1>
+<p>Campus camera face recognition with proxy &amp; spoof detection · Interactive prototype (simulated data)</p></header>
+<div class="wrap">
+
+<div class="grid stats">
+<div class="card stat"><b id="sP">0</b><span>Present</span></div>
+<div class="card stat"><b id="sA">0</b><span>Absent</span></div>
+<div class="card stat"><b id="sL">0</b><span>Late</span></div>
+<div class="card stat"><b id="sX" style="color:var(--bad)">0</b><span>Alerts</span></div>
+<div class="card stat"><b id="sR">0%</b><span>Attendance rate</span></div>
+</div>
+
+<h2>Lecture &amp; Room Cameras</h2><div class="card"><div class="row"><select id="lec" style="max-width:100%"></select></div><div id="li" style="color:var(--mu);font-size:13px"></div></div><div style="height:10px"></div>
+<div class="grid cams" id="cams"></div>
+<div class="row">
+<button id="run">▶ Start live simulation</button>
+<button class="alt" id="spoof">Simulate photo spoof</button>
+<button class="alt" id="proxy">Simulate proxy (two places)</button>
+<button class="alt" id="theme">Toggle theme</button>
+</div>
+
+<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">
+<div><h2>Event &amp; Alert Log</h2><div class="card"><div id="log"></div></div></div>
+<div><h2>How a student is marked</h2><div class="card">
+<div class="flow"><span>📷 Camera frame</span><span>🙂 Face detect</span><span>🛡 Liveness</span><span>🧬 Embedding match</span><span>📍 Room + lecture period</span><span>✅ Mark present</span></div>
+<p style="color:var(--mu);font-size:13px">Attendance is per lecture: only the camera of that room, during that lecture's period, counts. Seen in the room on time → Present; after grace time → Late. Seen only at the gate or not at all → Absent (faculty can review and override).</p></div></div>
+</div>
+
+<h2 id="rh"></h2>
+<div class="row"><input id="q" placeholder="Search name / roll no."><select id="f"><option value="">All</option><option>Present</option><option>Late</option><option>Absent</option></select></div>
+<div class="card tw"><table><thead><tr><th>Roll No.</th><th>Name</th><th>Status</th><th>First seen</th><th>Camera</th><th>Match</th><th>Override</th></tr></thead><tbody id="tb"></tbody></table></div>
+
+<h2>Features</h2>
+<div class="grid feat" id="feat"></div>
+</div>
+<footer>Built by Krishna Sharma, B.Tech CSE (Cyber Security), 1st Year, COER University, Roorkee · Demo uses fictional students and simulated detections · Real system needs consent &amp; data-protection compliance</footer>
+
+<script src="students.sample.js"></script>
+<script src="students.js"></script>
+<script>
+var cams=[{n:"Main Gate",k:"gate"},{n:"CB308",k:"room"},{n:"CB105",k:"room"},{n:"Auditorium",k:"hall"}];
+var LEC=[{r:1,s:"C++ Programming",t:"10:00-10:50"},{r:2,s:"DBMS",t:"11:00-11:50"},{r:3,s:"Guest Lecture: AI in Industry",t:"12:00-12:50"}];
+var S=(window.ROSTER||[]).map(function(r){return {id:r[0],n:r[1],st:"Absent",t:"-",c:"-",m:"-",fl:0,bunk:false,g:0}});
+var lec=0,alerts=0,timer=null,t0=Date.now(),FX=[null,null,null,null],cvs=[];
+var $=function(i){return document.getElementById(i)};
+function now(){return new Date().toLocaleTimeString()}
+function log(m,bad){var d=document.createElement("div");if(bad)d.className="al";d.textContent="["+now()+"] "+m;$("log").prepend(d)}
+$("cams").innerHTML=cams.map(function(c,i){return '<div class="card" style="padding:6px"><div class="cam"><canvas id="c'+i+'" width="320" height="180"></canvas></div></div>'}).join("");
+cams.forEach(function(c,i){cvs[i]=$("c"+i).getContext("2d")});
+$("lec").innerHTML=LEC.map(function(l,i){return '<option value="'+i+'">'+cams[l.r].n+" | "+l.s+" | "+l.t+"</option>"}).join("");
+var SK=["#e0ac84","#c68642","#8d5524","#f1c27d"],CL=["#345","#843","#365","#556","#a55","#468"];
+function head(g,x,y,r,c,s){g.fillStyle=c;g.fillRect(x-r*1.1,y+r,r*2.2,r*2.4);g.fillStyle=s;g.beginPath();g.arc(x,y,r,0,7);g.fill()}
+function bx(g,x,y,w,h,l,bad){g.strokeStyle=g.fillStyle=bad?"#f55":"#3f8";g.lineWidth=1.5;g.strokeRect(x,y,w,h);g.font="9px monospace";g.fillText(l,x,y-3)}
+function scene(i,t){var g=cvs[i],W=320,H=180,k=cams[i].k,x,y,j;
+if(k=="gate"){
+var gr=g.createLinearGradient(0,0,0,H);gr.addColorStop(0,"#8fb8e0");gr.addColorStop(.6,"#dbe7f0");gr.addColorStop(.61,"#7d8c74");gr.addColorStop(1,"#5f6b58");g.fillStyle=gr;g.fillRect(0,0,W,H);
+g.fillStyle="#b9a58a";g.fillRect(60,34,200,76);g.fillStyle="#9a8670";g.fillRect(56,30,208,8);
+g.fillStyle="#cfe3f5";for(y=46;y<100;y+=22)for(x=72;x<250;x+=30)g.fillRect(x,y,16,12);
+g.fillStyle="#223";g.fillRect(140,76,40,34);g.fillStyle="#0b2a7a";g.fillRect(100,10,120,16);g.fillStyle="#fff";g.font="bold 10px sans-serif";g.fillText("COER UNIVERSITY, ROORKEE",104,22);
+[22,298].forEach(function(tx){g.fillStyle="#5a3d26";g.fillRect(tx-3,100,6,34);g.fillStyle="#2f6b35";g.beginPath();g.arc(tx,92,26,0,7);g.fill()});
+g.fillStyle="#8c8c8c";g.beginPath();g.moveTo(130,110);g.lineTo(190,110);g.lineTo(270,H);g.lineTo(50,H);g.fill();
+for(j=0;j<6;j++){x=((t*18*(.6+j*.12)+j*60)%380)-30;if(j%2)x=320-x;y=120+(j%3)*16+Math.sin(t*6+j)*1.5;head(g,x,y,5+(j%3),CL[j],SK[j%4]);if(j==1||j==4)bx(g,x-9,y-10,18,20,"ID "+(120+j),false)}
+}else{
+var hall=k=="hall";g.fillStyle=hall?"#1d1728":"#cdc6b6";g.fillRect(0,0,W,H);g.fillStyle=hall?"#3a2f52":"#8a7863";g.fillRect(0,110,W,70);
+if(hall){var sg=g.createLinearGradient(0,0,0,70);sg.addColorStop(0,"#7a6aa8");sg.addColorStop(1,"#2a2140");g.fillStyle=sg;g.fillRect(70,14,180,54);g.fillStyle="#fff";g.font="11px sans-serif";g.fillText("AI in Industry",120,44)}
+else{g.fillStyle="#2f5d45";g.fillRect(80,16,160,56);g.fillStyle="#e8efe9";g.font="11px sans-serif";g.fillText(i==2?"DBMS - Normalization":"C++ - Classes & Objects",92,46);g.fillStyle="#9cc3e8";g.fillRect(8,20,40,40)}
+var act=LEC[lec].r==i,pc=S.filter(function(s){return s.st!="Absent"}).length/S.length,fs=null;
+if(act)S.forEach(function(s){if(Date.now()-s.fl<1800)fs=s});
+for(j=0;j<28;j++){x=22+(j%14)*21;y=92+Math.floor(j/14)*34;
+var bs=fs&&S.indexOf(fs)%28==j,occ=act?(j<Math.round(pc*28)||bs):(j%3!=0);
+if(occ){head(g,x,y,5,CL[j%6],SK[j%4]);if(bs)bx(g,x-10,y-10,20,22,fs.n.split(" ")[0]+" "+fs.m,false)}
+g.fillStyle=hall?"#4a3d68":"#7a5a3a";g.fillRect(x-10,y+11,20,6)}}
+if(FX[i]&&Date.now()-FX[i].t<2200)bx(g,130,70,26,30,FX[i].l,true);
+var v=g.createRadialGradient(160,90,60,160,90,200);v.addColorStop(0,"rgba(0,0,0,0)");v.addColorStop(1,"rgba(0,0,0,.55)");g.fillStyle=v;g.fillRect(0,0,W,H);
+g.fillStyle="rgba(0,0,0,.08)";for(y=0;y<H;y+=3)g.fillRect(0,y,W,1);
+g.fillStyle="rgba(255,255,255,.12)";for(j=0;j<25;j++)g.fillRect(Math.random()*W,Math.random()*H,2,1);
+g.font="10px monospace";g.fillStyle="#fff";g.fillText("CAM-0"+(i+1)+" | "+cams[i].n.toUpperCase(),8,14);g.fillText(new Date().toLocaleString("en-GB"),8,H-8);
+if(Math.floor(t*1.5)%2){g.fillStyle="#f33";g.beginPath();g.arc(W-40,10,4,0,7);g.fill()}g.fillStyle="#fff";g.fillText("REC",W-32,14)}
+setInterval(function(){var t=Date.now()/1000;for(var i=0;i<4;i++)scene(i,t)},80);
+function render(){
+var q=$("q").value.toLowerCase(),f=$("f").value;
+$("tb").innerHTML=S.filter(function(s){return (!q||(s.n+s.id).toLowerCase().indexOf(q)>-1)&&(!f||s.st===f)}).map(function(s){var k=s.st=="Present"?"P":s.st=="Late"?"L":"A";var i=S.indexOf(s);
+return "<tr><td>"+s.id+"</td><td>"+s.n+'</td><td><span class="tag '+k+'">'+s.st+"</span></td><td>"+s.t+"</td><td>"+s.c+"</td><td>"+s.m+'</td><td><button class="alt" style="padding:3px 8px" onclick="ov('+i+')">Toggle</button></td></tr>'}).join("");
+var p=S.filter(function(s){return s.st=="Present"}).length,l=S.filter(function(s){return s.st=="Late"}).length;
+$("sP").textContent=p;$("sL").textContent=l;$("sA").textContent=S.length-p-l;$("sX").textContent=alerts;$("sR").textContent=Math.round((p+l)/S.length*100)+"%"}
+function ov(i){var s=S[i];if(s.st=="Absent"){s.st="Present";s.t=now();s.c="Manual";s.m="Faculty";s.fl=Date.now();log("Faculty override: "+s.n+" marked Present")}else{s.st="Absent";s.t="-";s.c="-";s.m="-";s.fl=0;log("Faculty override: "+s.n+" set Absent")}render()}
+function resetLec(){var L=LEC[lec];S.forEach(function(s){s.st="Absent";s.t="-";s.c="-";s.m="-";s.fl=0;s.bunk=false;s.g=0});
+for(var b=0;b<Math.max(2,Math.round(S.length*.08));b++)S[Math.floor(Math.random()*S.length)].bunk=true;
+$("rh").textContent="Attendance Register | "+L.s+" | "+cams[L.r].n+" | "+L.t;
+$("li").textContent="Only the "+cams[L.r].n+" camera during "+L.t+" counts for this lecture. Sightings at the gate or in other rooms do not mark attendance.";
+start=Date.now();log("Lecture selected: "+L.s+" in "+cams[L.r].n+" ("+L.t+")");render()}
+var start=Date.now();
+function detect(){var L=LEC[lec],room=cams[L.r].n;
+var b=S.filter(function(s){return s.bunk&&!s.g});
+if(b.length&&Math.random()<.3){var u=b[0];u.g=1;u.c="Main Gate";u.m="Campus only";u.t=now();FX[0]={t:Date.now(),l:"ID "+u.id.slice(-3)};log(u.n+" seen at Main Gate only - on campus but NOT in "+room+". Not counted.",true);alerts++;render();return}
+var pool=S.filter(function(s){return s.st=="Absent"&&!s.bunk});
+if(!pool.length){log("Lecture period closed. Summary: "+$("sP").textContent+" present, "+$("sL").textContent+" late, "+$("sA").textContent+" absent.");stop();return}
+var s=pool[Math.floor(Math.random()*pool.length)],conf=(90+Math.random()*9.5).toFixed(1);
+s.st=(Date.now()-start>30000)?"Late":"Present";s.t=now();s.c=room;s.m=conf+"%";s.fl=Date.now();
+log(s.n+" recognized in "+room+" ("+conf+"%) -> "+s.st);render()}
+function stop(){clearInterval(timer);timer=null;$("run").textContent="\u25B6 Start live simulation"}
+$("run").onclick=function(){if(timer){stop();return}start=Date.now();timer=setInterval(detect,500);$("run").textContent="\u23F8 Pause simulation";log("Recognition started for "+LEC[lec].s)};
+$("spoof").onclick=function(){FX[LEC[lec].r]={t:Date.now(),l:"SPOOF"};alerts++;log("ALERT: Liveness failed in "+cams[LEC[lec].r].n+" - photo/phone screen detected. Attendance blocked.",true);render()};
+$("proxy").onclick=function(){var s=S[Math.floor(Math.random()*S.length)],o=(LEC[lec].r%3)+1;FX[LEC[lec].r]={t:Date.now(),l:"DUP"};FX[o]={t:Date.now(),l:"DUP"};alerts++;log("ALERT: "+s.n+" seen in "+cams[LEC[lec].r].n+" and "+cams[o].n+" at the same time - impossible. Flagged for review.",true);render()};
+$("theme").onclick=function(){var r=document.documentElement,d=getComputedStyle(r).getPropertyValue("--bg").trim()=="#0e1220";r.setAttribute("data-theme",d?"light":"dark")};
+$("lec").onchange=function(){stop();lec=+$("lec").value;resetLec()};
+$("q").oninput=render;$("f").onchange=render;
+var F=[["Per-lecture attendance","Attendance is created for each timetable slot, not once per day."],["Room-camera binding","Only the camera of the lecture's room (CB308, CB105, Auditorium) counts during its period."],["Bunk detection","Students seen only at the gate or campus are flagged: on campus, not in class."],["Multi-camera recognition","Embeddings from all cameras are matched against enrolled students."],["Liveness & anti-spoofing","Blink, head-pose and texture checks block photos, phone screens and videos."],["Impossible-travel alerts","The same face in two rooms at once is flagged as proxy."],["Late & minimum presence","Grace time for Late, and an optional rule such as 75% of the lecture duration."],["Timetable sync","Lecture, room and faculty are pulled from the university timetable."],["Faculty dashboard & override","Review low-confidence matches and correct camera blind-spot errors."],["Unknown person alerts","Unrecognized faces in restricted zones notify security."],["Reports & analytics","Subject-wise, monthly and defaulter reports, low-attendance prediction."],["Notifications","SMS, email or app alerts to students, parents and mentors."],["Student app","View attendance, request corrections, enroll face with consent."],["Privacy & security","Consent, encrypted embeddings instead of photos, role-based access, audit logs, retention limits."]];
+$("feat").innerHTML=F.map(function(x){return '<div class="card"><b>'+x[0]+"</b><p>"+x[1]+"</p></div>"}).join("");
+resetLec();
+</script></body></html>
