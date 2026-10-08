@@ -74,14 +74,3 @@ Face data is sensitive. Use only with written consent, store embeddings (not pho
 ## License
 MIT, see `LICENSE`.
 
-## Class roster and privacy
-The demo reads its students from `students.sample.js` (fictional data, safe to publish).
-
-To demo with a real class list, create a file named `students.js` next to `index.html`:
-
-```js
-window.ROSTER=[["CU26XXXXXXX","STUDENT NAME"],["CU26YYYYYYY","ANOTHER NAME"]];
-```
-
-If `students.js` exists it overrides the sample roster. It is listed in `.gitignore`.
-**Never commit real student names or IDs to a public repository**; they are personal data of other people. If you upload through the GitHub website, simply do not upload `students.js`.
